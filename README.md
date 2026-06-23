@@ -7,6 +7,7 @@ PingCAP website operations toolkit.
 | Tool | Description |
 |------|-------------|
 | [blog-migrate](./blog-migrate/) | Migrate blog posts from the English site to the Japanese site |
+| [content-ops](./content-ops/) | Content operation tools such as batch trash by URL |
 
 ---
 
@@ -69,6 +70,57 @@ python3 wp_migrate.py --month 2026-05
 ```
 
 After migration, review the drafts in the Japanese site admin: `/cms-dashboard/edit.php?post_status=draft`
+
+## content-ops
+
+WordPress content operation tools for batch actions across blog/article content.
+
+### Batch move posts to trash by URL
+
+Edit the configuration block at the top of `content-ops/wp_trash_posts.py`:
+
+```python
+SITE_URL = "https://www.pingcap.com"
+USERNAME = "your_wp_username"
+APP_PASSWORD = "xxxx xxxx xxxx xxxx xxxx xxxx"
+```
+
+Then run:
+
+```bash
+cd content-ops
+
+# Preview only
+python3 wp_trash_posts.py --url https://www.pingcap.com/blog/example-post/ --dry-run
+
+# Trash multiple URLs
+python3 wp_trash_posts.py \
+  --url https://www.pingcap.com/blog/post-a/ \
+  --url https://www.pingcap.com/blog/post-b/
+
+# Trash from a file (one URL per line)
+python3 wp_trash_posts.py --file urls.txt
+
+# Custom post type endpoints are tried first
+python3 wp_trash_posts.py --file urls.txt --post-type articles --dry-run
+
+# Large batches: add a small delay and save failed URLs
+python3 wp_trash_posts.py --file urls.txt --post-type articles --delay 0.2 --failed-file failed-urls.txt
+```
+
+The tool supports standard post URLs and `?p=<post_id>` URLs. It moves posts to the WordPress trash, not permanent deletion.
+
+### Generate Redirection import CSV
+
+Generate a Redirection plugin import CSV from a text file of paths or URLs:
+
+```bash
+cd content-ops
+python3 generate_redirection_csv.py --file urls.txt --target https://www.pingcap.com/
+```
+
+This writes `redirection-import.csv` with one redirect per line. Input lines may be full URLs or relative paths such as `/blog/example-post/`.
+The generated CSV uses the Redirection CSV columns `source,target,regex,code`.
 
 ### What gets migrated
 
