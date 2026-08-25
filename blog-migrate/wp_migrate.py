@@ -295,9 +295,27 @@ def migrate_content_images(content: str) -> str:
 # Migrate a single post
 # ============================================================
 
+def jp_post_exists(slug: str) -> bool:
+    """Check whether a post with the given slug already exists on the JP site."""
+    try:
+        resp = requests.get(
+            f"{JP_SITE_URL}/wp-json/wp/v2/posts",
+            params={"slug": slug, "status": "any", "per_page": 1},
+            headers=get_auth_header(),
+            timeout=15,
+        )
+        return resp.ok and len(resp.json()) > 0
+    except Exception:
+        return False
+
+
 def migrate_post(post: dict) -> bool:
     title = post["title"]["rendered"]
     print(f"\n📝 migrating: {title}")
+
+    if jp_post_exists(post["slug"]):
+        print(f"  ⏭️  skipped (already exists on JP): {title}")
+        return True
 
     # 1. Body images: download → upload to JP → rewrite URLs
     # When authenticated against EN use raw (preserves Block format); otherwise use rendered
