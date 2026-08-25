@@ -26,8 +26,8 @@ import argparse
 
 # English site
 EN_SITE_URL     = "https://www.pingcap.com"
-EN_USERNAME     = ""   # EN WP username
-EN_APP_PASSWORD = ""   # EN Application Password
+EN_USERNAME     = os.environ.get("EN_USERNAME", "")
+EN_APP_PASSWORD = os.environ.get("EN_APP_PASSWORD", "")
 
 # EN CDN hostnames used to detect migratable images in post bodies
 EN_CDN_DOMAINS = [
@@ -36,8 +36,8 @@ EN_CDN_DOMAINS = [
 
 # Japanese WordPress site
 JP_SITE_URL     = "https://pingcap.co.jp"
-JP_USERNAME     = ""   # JP WP username
-JP_APP_PASSWORD = ""   # JP Application Password
+JP_USERNAME     = os.environ.get("JP_USERNAME", "")
+JP_APP_PASSWORD = os.environ.get("JP_APP_PASSWORD", "")
 
 # Target month. None means the current month (UTC). Format: "YYYY-MM".
 TARGET_MONTH = None
@@ -315,7 +315,7 @@ def migrate_post(post: dict) -> bool:
 
     if jp_post_exists(post["slug"]):
         print(f"  ⏭️  skipped (already exists on JP): {title}")
-        return True
+        return "skipped"
 
     # 1. Body images: download → upload to JP → rewrite URLs
     # When authenticated against EN use raw (preserves Block format); otherwise use rendered
@@ -411,12 +411,12 @@ def migrate_post(post: dict) -> bool:
             else:
                 print(f"  ⚠️ SEO sync failed: {seo_resp.text[:100]}")
 
-        return True
+        return "migrated"
     except Exception as e:
         print(f"  ❌ publish failed: {e}")
         if hasattr(e, "response") and e.response is not None:
             print(f"     response: {e.response.text[:300]}")
-        return False
+        return "failed"
 
 # ============================================================
 # Main entry
@@ -457,16 +457,29 @@ def main():
         print("\n✅ dry-run complete; remove --dry-run to start the actual migration.")
         return
 
-    success, failed = 0, 0
+    migrated, skipped, failed_list = [], [], []
     for post in posts:
-        if migrate_post(post):
-            success += 1
+        title = post["title"]["rendered"]
+        result = migrate_post(post)
+        if result == "migrated":
+            migrated.append(title)
+        elif result == "skipped":
+            skipped.append(title)
         else:
-            failed += 1
+            failed_list.append(title)
 
     print(f"\n{'='*50}")
-    print(f"🎉 migration complete: {success} succeeded / {failed} failed")
+    print(f"🎉 migration complete: {len(migrated)} migrated / {len(skipped)} skipped / {len(failed_list)} failed")
     print(f"   drafts:     {JP_SITE_URL}/cms-dashboard/edit.php?post_status=draft")
+
+    summary = {
+        "month": month,
+        "migrated": migrated,
+        "skipped": skipped,
+        "failed": failed_list,
+    }
+    summary_json = json.dumps(summary, ensure_ascii=False)
+    print(f"\n__SUMMARY_JSON__\n{summary_json}")
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,95 @@
+name: Monthly blog migration (EN → JP)
+
+on:
+  schedule:
+    # 1st of every month at 09:00 UTC (18:00 JST)
+    - cron: "0 9 1 * *"
+  workflow_dispatch:
+    inputs:
+      month:
+        description: "Target month (YYYY-MM). Leave empty to auto-calculate previous month."
+        required: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Calculate target month
+        id: month
+        run: |
+          if [ -n "${{ github.event.inputs.month }}" ]; then
+            echo "value=${{ github.event.inputs.month }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=$(date -d '1 month ago' '+%Y-%m')" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run migration
+        id: migrate
+        env:
+          EN_USERNAME: ${{ secrets.EN_USERNAME }}
+          EN_APP_PASSWORD: ${{ secrets.EN_APP_PASSWORD }}
+          JP_USERNAME: ${{ secrets.JP_USERNAME }}
+          JP_APP_PASSWORD: ${{ secrets.JP_APP_PASSWORD }}
+        run: |
+          OUTPUT=$(python blog-migrate/wp_migrate.py --month "${{ steps.month.outputs.value }}" 2>&1)
+          echo "$OUTPUT"
+          SUMMARY=$(echo "$OUTPUT" | sed -n '/__SUMMARY_JSON__/{n;p;}')
+          echo "summary=$SUMMARY" >> "$GITHUB_OUTPUT"
+
+      - name: Notify Lark
+        if: always()
+        env:
+          LARK_WEBHOOK: ${{ secrets.LARK_WEBHOOK }}
+        run: |
+          SUMMARY='${{ steps.migrate.outputs.summary }}'
+          MONTH="${{ steps.month.outputs.value }}"
+
+          MIGRATED=$(echo "$SUMMARY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d['migrated']))" 2>/dev/null || echo "?")
+          SKIPPED=$(echo "$SUMMARY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d['skipped']))" 2>/dev/null || echo "?")
+          FAILED=$(echo "$SUMMARY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d['failed']))" 2>/dev/null || echo "?")
+          MIGRATED_LIST=$(echo "$SUMMARY" | python3 -c "
+          import sys,json
+          d=json.load(sys.stdin)
+          for t in d['migrated']:
+              print(f'  • {t}')
+          " 2>/dev/null || echo "")
+          FAILED_LIST=$(echo "$SUMMARY" | python3 -c "
+          import sys,json
+          d=json.load(sys.stdin)
+          for t in d['failed']:
+              print(f'  • {t}')
+          " 2>/dev/null || echo "")
+
+          if [ "${{ job.status }}" = "success" ] && [ "$FAILED" = "0" ]; then
+            TITLE="Blog migration $MONTH completed"
+          else
+            TITLE="Blog migration $MONTH needs attention"
+          fi
+
+          CONTENT="$TITLE\n\nMigrated: $MIGRATED | Skipped: $SKIPPED | Failed: $FAILED"
+          if [ -n "$MIGRATED_LIST" ]; then
+            CONTENT="$CONTENT\n\nNew drafts:\n$MIGRATED_LIST"
+          fi
+          if [ -n "$FAILED_LIST" ]; then
+            CONTENT="$CONTENT\n\nFailed:\n$FAILED_LIST"
+          fi
+          CONTENT="$CONTENT\n\nDrafts: https://pingcap.co.jp/cms-dashboard/edit.php?post_status=draft"
+
+          curl -s -X POST "$LARK_WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d "$(python3 -c "
+          import json,sys
+          print(json.dumps({
+              'msg_type': 'text',
+              'content': {'text': '''$CONTENT'''}
+          }))
+          ")"
