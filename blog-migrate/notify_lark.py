@@ -63,12 +63,11 @@ def build_card(d):
     return {
         "msg_type": "interactive",
         "card": {
-            "schema": "2.0",
             "header": {
                 "title": {"tag": "plain_text", "content": header_title},
                 "template": header_color,
             },
-            "body": {"elements": elements},
+            "elements": elements,
         },
     }
 
