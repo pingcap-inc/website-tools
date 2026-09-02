@@ -315,7 +315,7 @@ def migrate_post(post: dict) -> bool:
 
     if jp_post_exists(post["slug"]):
         print(f"  ⏭️  skipped (already exists on JP): {title}")
-        return "skipped"
+        return "skipped", None
 
     # 1. Body images: download → upload to JP → rewrite URLs
     # When authenticated against EN use raw (preserves Block format); otherwise use rendered
@@ -345,7 +345,7 @@ def migrate_post(post: dict) -> bool:
             if author_id:
                 print(f"  👤 author mapped: {en_display_name} → id={author_id}")
             else:
-                print(f"  ⚠️ JP user not found: {en_display_name}; falling back to the default author")
+                print(f"  ⚠️ JP user not found: {en_display_name}; will save as draft")
 
     # 4. Map categories and tags
     cat_names = get_en_term_names(post["id"], "category")
@@ -359,13 +359,14 @@ def migrate_post(post: dict) -> bool:
     if tag_names:
         print(f"  🏷️  tags: {tag_names}")
 
-    # 5. Create draft
+    # 5. Create post (publish if author exists, draft otherwise)
+    status = "publish" if author_id else "draft"
     post_data = {
         "title":   title,
         "content": content,
         "excerpt": post["excerpt"]["rendered"],
         "slug":    post["slug"],
-        "status":  "draft",
+        "status":  status,
         "date":    post["date"],
     }
     if featured_media_id:
@@ -386,7 +387,10 @@ def migrate_post(post: dict) -> bool:
         )
         resp.raise_for_status()
         new_id = resp.json()["id"]
-        print(f"  ✅ draft created: {JP_SITE_URL}/?p={new_id}")
+        if status == "publish":
+            print(f"  ✅ published: {JP_SITE_URL}/blog/{post['slug']}/")
+        else:
+            print(f"  ✅ draft created (no matching author): {JP_SITE_URL}/?p={new_id}")
 
         # Sync Yoast SEO
         yoast = post.get("yoast_head_json", {})
@@ -411,12 +415,16 @@ def migrate_post(post: dict) -> bool:
             else:
                 print(f"  ⚠️ SEO sync failed: {seo_resp.text[:100]}")
 
-        return "migrated"
+        if status == "publish":
+            return "published", None
+        else:
+            missing_author = en_display_name if (not author_id and en_display_name) else "unknown"
+            return "drafted", missing_author
     except Exception as e:
         print(f"  ❌ publish failed: {e}")
         if hasattr(e, "response") and e.response is not None:
             print(f"     response: {e.response.text[:300]}")
-        return "failed"
+        return "failed", None
 
 # ============================================================
 # Main entry
@@ -457,24 +465,28 @@ def main():
         print("\n✅ dry-run complete; remove --dry-run to start the actual migration.")
         return
 
-    migrated, skipped, failed_list = [], [], []
+    published, drafted, skipped, failed_list = [], [], [], []
     for post in posts:
         title = post["title"]["rendered"]
-        result = migrate_post(post)
-        if result == "migrated":
-            migrated.append(title)
+        result, missing_author = migrate_post(post)
+        if result == "published":
+            published.append(title)
+        elif result == "drafted":
+            drafted.append({"title": title, "missing_author": missing_author})
         elif result == "skipped":
             skipped.append(title)
         else:
             failed_list.append(title)
 
     print(f"\n{'='*50}")
-    print(f"🎉 migration complete: {len(migrated)} migrated / {len(skipped)} skipped / {len(failed_list)} failed")
-    print(f"   drafts:     {JP_SITE_URL}/cms-dashboard/edit.php?post_status=draft")
+    print(f"🎉 migration complete: {len(published)} published / {len(drafted)} drafted / {len(skipped)} skipped / {len(failed_list)} failed")
+    if drafted:
+        print(f"   drafts:     {JP_SITE_URL}/cms-dashboard/edit.php?post_status=draft")
 
     summary = {
         "month": month,
-        "migrated": migrated,
+        "published": published,
+        "drafted": drafted,
         "skipped": skipped,
         "failed": failed_list,
     }
