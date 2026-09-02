@@ -47,30 +47,12 @@ def build_card(d):
         )
 
     if ski:
+        elements.append({"tag": "hr"})
         md = "\n".join(f'• [{item["title"]}]({item["url"]})' for item in ski)
         elements.append(
             {
-                "tag": "collapsible_panel",
-                "expanded": False,
-                "header": {
-                    "title": {
-                        "tag": "plain_text",
-                        "content": f"Skipped - already on JP ({len(ski)})",
-                    }
-                },
-                "border": {"color": "grey"},
-                "body": {
-                    "tag": "column_set",
-                    "flex_mode": "none",
-                    "columns": [
-                        {
-                            "tag": "column",
-                            "width": "weighted",
-                            "weight": 1,
-                            "elements": [{"tag": "markdown", "content": md}],
-                        }
-                    ],
-                },
+                "tag": "markdown",
+                "content": f"**Skipped - already on JP ({len(ski)}):**\n{md}",
             }
         )
 
