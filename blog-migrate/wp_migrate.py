@@ -315,7 +315,7 @@ def migrate_post(post: dict) -> bool:
 
     if jp_post_exists(post["slug"]):
         print(f"  ⏭️  skipped (already exists on JP): {title}")
-        return "skipped", None
+        return "skipped", {"url": f"{JP_SITE_URL}/blog/{post['slug']}/"}
 
     # 1. Body images: download → upload to JP → rewrite URLs
     # When authenticated against EN use raw (preserves Block format); otherwise use rendered
@@ -415,11 +415,13 @@ def migrate_post(post: dict) -> bool:
             else:
                 print(f"  ⚠️ SEO sync failed: {seo_resp.text[:100]}")
 
+        post_url = f"{JP_SITE_URL}/blog/{post['slug']}/"
+        edit_url = f"{JP_SITE_URL}/cms-dashboard/post.php?post={new_id}&action=edit"
         if status == "publish":
-            return "published", None
+            return "published", {"url": post_url}
         else:
             missing_author = en_display_name if (not author_id and en_display_name) else "unknown"
-            return "drafted", missing_author
+            return "drafted", {"url": edit_url, "missing_author": missing_author}
     except Exception as e:
         print(f"  ❌ publish failed: {e}")
         if hasattr(e, "response") and e.response is not None:
@@ -468,13 +470,13 @@ def main():
     published, drafted, skipped, failed_list = [], [], [], []
     for post in posts:
         title = post["title"]["rendered"]
-        result, missing_author = migrate_post(post)
+        result, info = migrate_post(post)
         if result == "published":
-            published.append(title)
+            published.append({"title": title, "url": info["url"]})
         elif result == "drafted":
-            drafted.append({"title": title, "missing_author": missing_author})
+            drafted.append({"title": title, "url": info["url"], "missing_author": info["missing_author"]})
         elif result == "skipped":
-            skipped.append(title)
+            skipped.append({"title": title, "url": info["url"]})
         else:
             failed_list.append(title)
 

@@ -67,15 +67,16 @@ jobs:
 
           if pub:
               lines += ['', 'Published:']
-              lines += [f'  • {t}' for t in pub]
+              for item in pub:
+                  lines.append('  • ' + item['title'] + chr(10) + '    ' + item['url'])
           if dra:
               lines += ['', 'Drafts (author not found):']
               for item in dra:
-                  lines.append('  • ' + item['title'] + '  [missing: ' + item['missing_author'] + ']')
-              lines += ['', 'Review drafts: https://pingcap.co.jp/cms-dashboard/edit.php?post_status=draft']
+                  lines.append('  • ' + item['title'] + '  [missing: ' + item['missing_author'] + ']' + chr(10) + '    ' + item['url'])
           if ski:
               lines += ['', 'Skipped (already on JP):']
-              lines += [f'  • {t}' for t in ski]
+              for item in ski:
+                  lines.append('  • ' + item['title'] + chr(10) + '    ' + item['url'])
           if fai:
               lines += ['', 'Failed:']
               lines += [f'  • {t}' for t in fai]
