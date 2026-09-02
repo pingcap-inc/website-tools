@@ -73,10 +73,6 @@ jobs:
               lines += ['', 'Drafts (author not found):']
               for item in dra:
                   lines.append('  • ' + item['title'] + '  [missing: ' + item['missing_author'] + ']' + chr(10) + '    ' + item['url'])
-          if ski:
-              lines += ['', 'Skipped (already on JP):']
-              for item in ski:
-                  lines.append('  • ' + item['title'] + chr(10) + '    ' + item['url'])
           if fai:
               lines += ['', 'Failed:']
               lines += [f'  • {t}' for t in fai]
