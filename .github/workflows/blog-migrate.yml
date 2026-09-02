@@ -49,57 +49,5 @@ jobs:
         if: always()
         env:
           LARK_WEBHOOK: ${{ secrets.LARK_WEBHOOK }}
-        run: |
-          SUMMARY='${{ steps.migrate.outputs.summary }}'
-          MONTH="${{ steps.month.outputs.value }}"
-
-          NOTIFY_BODY=$(echo "$SUMMARY" | python3 -c "
-          import sys, json
-          d = json.load(sys.stdin)
-          month = d['month']
-          pub = d.get('published', [])
-          dra = d.get('drafted', [])
-          ski = d.get('skipped', [])
-          fai = d.get('failed', [])
-
-          has_fail = len(fai) > 0
-          header_title = f'Blog migration {month} needs attention' if has_fail else f'Blog migration {month} completed'
-          header_color = 'red' if has_fail else 'green'
-
-          elements = []
-          stats = f'**Published:** {len(pub)}  |  **Drafts:** {len(dra)}  |  **Skipped:** {len(ski)}  |  **Failed:** {len(fai)}'
-          elements.append({'tag': 'markdown', 'content': stats})
-
-          if pub:
-              md = chr(10).join(f'• [{item[\"title\"]}]({item[\"url\"]})' for item in pub)
-              elements.append({'tag': 'markdown', 'content': '**Published:**' + chr(10) + md})
-          if dra:
-              md = chr(10).join(f'• [{item[\"title\"]}]({item[\"url\"]})  \\`missing: {item[\"missing_author\"]}\\`' for item in dra)
-              elements.append({'tag': 'markdown', 'content': '**Drafts (author not found):**' + chr(10) + md})
-          if ski:
-              md = chr(10).join(f'• [{item[\"title\"]}]({item[\"url\"]})' for item in ski)
-              elements.append({
-                  'tag': 'collapsible_panel',
-                  'expanded': False,
-                  'header': {'title': {'tag': 'plain_text', 'content': f'Skipped - already on JP ({len(ski)})'}},
-                  'border': {'color': 'grey'},
-                  'body': {'tag': 'column_set', 'flex_mode': 'none', 'columns': [{'tag': 'column', 'width': 'weighted', 'weight': 1, 'elements': [{'tag': 'markdown', 'content': md}]}]}
-              })
-          if fai:
-              md = chr(10).join(f'• {t}' for t in fai)
-              elements.append({'tag': 'markdown', 'content': '**Failed:**' + chr(10) + md})
-
-          card = {
-              'msg_type': 'interactive',
-              'card': {
-                  'schema': '2.0',
-                  'header': {'title': {'tag': 'plain_text', 'content': header_title}, 'template': header_color},
-                  'body': {'elements': elements}
-              }
-          }
-          print(json.dumps(card, ensure_ascii=False))
-          " 2>/dev/null || echo '{"msg_type":"text","content":{"text":"Blog migration failed to generate summary"}}')
-
-          curl -s -X POST "$LARK_WEBHOOK" \
-            -H "Content-Type: application/json" \
-            -d "$NOTIFY_BODY"
+          SUMMARY: ${{ steps.migrate.outputs.summary }}
+        run: python blog-migrate/notify_lark.py
