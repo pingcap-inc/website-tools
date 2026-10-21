@@ -5,7 +5,8 @@ WordPress blog migration: English site → Japanese site.
 - Detects EN CDN images, re-downloads them, and uploads them to the JP WP media library.
 - A JP-side plugin (e.g. WP Offload Media) pushes the new images to CDN.
 - Rewrites every image URL in the post body to the new JP URL.
-- Posts are saved as drafts.
+- Posts with a matching JP author are published directly; posts with no
+  matching author are saved as drafts for manual review.
 """
 
 import requests

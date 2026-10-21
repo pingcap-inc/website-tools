@@ -77,12 +77,14 @@ WordPress content operation tools for batch actions across blog/article content.
 
 ### Batch move posts to trash by URL
 
-Edit the configuration block at the top of `content-ops/wp_trash_posts.py`:
+Provide your WordPress credentials via environment variables (never hardcode them
+in the script). Optionally override the site URL with `WP_SITE_URL`:
 
-```python
-SITE_URL = "https://www.pingcap.com"
-USERNAME = "your_wp_username"
-APP_PASSWORD = "xxxx xxxx xxxx xxxx xxxx xxxx"
+```bash
+export WP_USERNAME="your_wp_username"
+export WP_APP_PASSWORD="xxxx xxxx xxxx xxxx xxxx xxxx"
+# Optional; defaults to https://www.pingcap.com
+export WP_SITE_URL="https://www.pingcap.com"
 ```
 
 Then run:

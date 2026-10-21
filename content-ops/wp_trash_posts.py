@@ -13,6 +13,7 @@ permanently deleting it.
 
 import argparse
 import base64
+import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,12 +24,16 @@ import requests
 
 
 # ============================================================
-# Configuration (edit to match your environment)
+# Configuration
 # ============================================================
+#
+# Credentials are read from the environment so secrets are never committed:
+#   WP_USERNAME      WordPress username
+#   WP_APP_PASSWORD  WordPress Application Password
+# The site URL defaults to the public site and can be overridden with
+# WP_SITE_URL or the --site-url flag.
 
-SITE_URL = "https://www.pingcap.com"  # WordPress site base URL (no trailing slash)
-USERNAME = ""       # WP username
-APP_PASSWORD = ""   # WP Application Password
+DEFAULT_SITE_URL = os.environ.get("WP_SITE_URL", "https://www.pingcap.com")
 
 
 # ============================================================
@@ -49,8 +54,18 @@ class ResolvedPost:
     link: str
 
 
+def get_credentials() -> tuple:
+    """Read WordPress credentials from the environment; exit if unset."""
+    username = os.environ.get("WP_USERNAME", "")
+    app_password = os.environ.get("WP_APP_PASSWORD", "")
+    if not username or not app_password:
+        raise SystemExit("请先设置环境变量 WP_USERNAME 和 WP_APP_PASSWORD")
+    return username, app_password
+
+
 def get_auth_header() -> dict:
-    token = base64.b64encode(f"{USERNAME}:{APP_PASSWORD}".encode()).decode()
+    username, app_password = get_credentials()
+    token = base64.b64encode(f"{username}:{app_password}".encode()).decode()
     return {"Authorization": f"Basic {token}"}
 
 
@@ -253,11 +268,11 @@ def main() -> None:
         help="Write unresolved or failed URLs to this file",
     )
     parser.add_argument("--dry-run", action="store_true", help="Resolve posts only; do not move anything to trash")
-    parser.add_argument("--site-url", default=SITE_URL, help="WordPress site base URL")
+    parser.add_argument("--site-url", default=DEFAULT_SITE_URL, help="WordPress site base URL")
     args = parser.parse_args()
 
-    if not USERNAME or not APP_PASSWORD:
-        raise SystemExit("请先在脚本顶部配置 USERNAME 和 APP_PASSWORD")
+    # Fail fast if credentials are not configured in the environment.
+    get_credentials()
 
     site_url = normalize_site_url(args.site_url)
     urls = read_urls(args.url, args.file)
