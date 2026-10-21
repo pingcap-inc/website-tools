@@ -36,17 +36,20 @@ pip3 install requests
 
 ### Configuration
 
-Edit the configuration block at the top of `wp_migrate.py`:
+Provide credentials for both sites via environment variables (never hardcode them
+in the script):
 
-```python
+```bash
 # English site
-EN_USERNAME     = "your_en_username"
-EN_APP_PASSWORD = "xxxx xxxx xxxx xxxx xxxx xxxx"
+export EN_USERNAME="your_en_username"
+export EN_APP_PASSWORD="xxxx xxxx xxxx xxxx xxxx xxxx"
 
 # Japanese site
-JP_USERNAME     = "your_jp_username"
-JP_APP_PASSWORD = "xxxx xxxx xxxx xxxx xxxx xxxx"
+export JP_USERNAME="your_jp_username"
+export JP_APP_PASSWORD="xxxx xxxx xxxx xxxx xxxx xxxx"
 ```
+
+In GitHub Actions these are supplied as repository secrets (see `.github/workflows/blog-migrate.yml`).
 
 To generate an Application Password: WP Admin → Users → Your Profile → bottom of the page "Application Passwords" → enter a name → Add New → copy the value.
 
